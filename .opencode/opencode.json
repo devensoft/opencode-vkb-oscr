@@ -1,0 +1,6 @@
+{
+  "plugins": [
+    "@opencode-ai/opencode-architect",
+    "opencode-vkb-oscr"
+  ]
+}
