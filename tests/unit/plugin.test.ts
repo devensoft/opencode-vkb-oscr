@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { mkdir, rm, stat } from "node:fs/promises";
 
 import { plugin } from "../plugin.ts";
 
@@ -8,11 +9,11 @@ describe("plugin", () => {
   };
 
   beforeEach(async () => {
-    await Deno.mkdir("/tmp/test-project/.opencode", { recursive: true });
+    await mkdir("/tmp/test-project/.opencode", { recursive: true });
   });
 
   afterEach(async () => {
-    await Deno.remove("/tmp/test-project", { recursive: true });
+    await rm("/tmp/test-project", { recursive: true });
   });
 
   describe("config hook", () => {
@@ -21,20 +22,20 @@ describe("plugin", () => {
 
       await plugin.hooks.config!(mockConfig);
 
-      const markerExists = await Deno.stat(markerPath).then(() => true, () => false);
+      const markerExists = await stat(markerPath).then(() => true, () => false);
       expect(markerExists).toBe(true);
 
       const skillsDir = `${mockConfig.projectRoot}/.opencode/skills`;
-      const planSkillExists = await Deno.stat(`${skillsDir}/vkb-oscr-plan`).then(() => true, () => false);
-      const coordinateSkillExists = await Deno.stat(`${skillsDir}/vkb-oscr-coordinate`).then(() => true, () => false);
-      const finalizeSkillExists = await Deno.stat(`${skillsDir}/vkb-oscr-finalize`).then(() => true, () => false);
+      const planSkillExists = await stat(`${skillsDir}/vkb-oscr-plan`).then(() => true, () => false);
+      const coordinateSkillExists = await stat(`${skillsDir}/vkb-oscr-coordinate`).then(() => true, () => false);
+      const finalizeSkillExists = await stat(`${skillsDir}/vkb-oscr-finalize`).then(() => true, () => false);
 
       expect(planSkillExists).toBe(true);
       expect(coordinateSkillExists).toBe(true);
       expect(finalizeSkillExists).toBe(true);
 
       const commandsDir = `${mockConfig.projectRoot}/.opencode/commands`;
-      const commandExists = await Deno.stat(`${commandsDir}/vkb-oscr.md`).then(() => true, () => false);
+      const commandExists = await stat(`${commandsDir}/vkb-oscr.md`).then(() => true, () => false);
       expect(commandExists).toBe(true);
     });
 
