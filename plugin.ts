@@ -10,12 +10,12 @@ const copyDir = async (src: string, dest: string): Promise<void> => {
   await cp(src, dest, { recursive: true, force: true });
 };
 
-export const plugin: Plugin = {
-  name: "vkb-oscr",
-  version: VERSION,
-  hooks: {
-    async config(config) {
-      const markerPath = `${config.projectRoot}/${MARKER_FILE}`;
+export const plugin: Plugin = async (input) => {
+  const projectRoot = input.directory;
+
+  return {
+    async config(_config) {
+      const markerPath = `${projectRoot}/${MARKER_FILE}`;
 
       try {
         const existing = await Bun.file(markerPath).text();
@@ -27,8 +27,8 @@ export const plugin: Plugin = {
         // Marker doesn't exist - install fresh
       }
 
-      const skillsDir = `${config.projectRoot}/.opencode/skills`;
-      const commandsDir = `${config.projectRoot}/.opencode/commands`;
+      const skillsDir = `${projectRoot}/.opencode/skills`;
+      const commandsDir = `${projectRoot}/.opencode/commands`;
 
       const skills = [
         "vkb-oscr-plan",
@@ -48,5 +48,5 @@ export const plugin: Plugin = {
 
       await Bun.write(markerPath, VERSION);
     }
-  }
+  };
 };
