@@ -2,6 +2,19 @@
 
 All notable changes to the opencode-vkb-oscr plugin.
 
+## [0.2.0] - 2026-02-16
+
+### Changed
+- Migrated from Deno to Bun runtime
+- Updated all documentation to reflect Bun runtime
+- Updated test framework references to use `bun test`
+- Updated file operation APIs to use Bun.file and Bun.write
+
+### Migration Notes
+- Replaced Deno-specific APIs with Bun equivalents
+- Test commands now use `bun test` instead of `deno test`
+- Type checking uses `bun run check` instead of `deno check`
+
 ## [0.1.0] - 2026-02-12
 
 ### Added

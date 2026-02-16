@@ -170,7 +170,7 @@ try {
 - Implement `config` hook to install assets on first run
 - Use version marker file to detect re-installation
 - Support upgrading when version marker differs
-- Use Bun.file and Deno APIs for file operations
+- Use Bun.file and Bun.write APIs for file operations
 
 **Config Hook Pattern:**
 ```typescript
