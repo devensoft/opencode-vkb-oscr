@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdir, rm, stat } from "node:fs/promises";
 
-import { plugin } from "../plugin.ts";
+import { plugin } from "../../plugin.ts";
 
 describe("plugin", () => {
   const mockConfig = {

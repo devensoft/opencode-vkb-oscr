@@ -1,13 +1,13 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { mkdir, cp } from "node:fs/promises";
+import { cp } from "node:fs/promises";
+import { join } from "node:path";
 
 const VERSION = "0.1.0";
 const MARKER_FILE = ".opencode/vkb-oscr-installed";
 
 const copyDir = async (src: string, dest: string): Promise<void> => {
-  const srcPath = import.meta.resolveSync(src.replace(/^\//, "")) ?? src;
-  await mkdir(dest, { recursive: true });
-  await cp(srcPath, dest, { recursive: true });
+  // cp with recursive:true will create destination directories automatically
+  await cp(src, dest, { recursive: true, force: true });
 };
 
 export const plugin: Plugin = {
@@ -22,29 +22,31 @@ export const plugin: Plugin = {
         if (existing === VERSION) {
           return;
         }
+        // Version differs - fall through to reinstall
       } catch {
-        const skillsDir = `${config.projectRoot}/.opencode/skills`;
-        const commandsDir = `${config.projectRoot}/.opencode/commands`;
-
-        await mkdir(skillsDir, { recursive: true });
-        await mkdir(commandsDir, { recursive: true });
-
-        const skills = [
-          "vkb-oscr-plan",
-          "vkb-oscr-coordinate",
-          "vkb-oscr-finalize"
-        ];
-
-        for (const skill of skills) {
-          const src = `./assets/skills/${skill}`;
-          const dest = `${skillsDir}/${skill}`;
-          await copyDir(src, dest);
-        }
-
-        await copyDir("./assets/commands", commandsDir);
-
-        await Bun.write(markerPath, VERSION);
+        // Marker doesn't exist - install fresh
       }
+
+      const skillsDir = `${config.projectRoot}/.opencode/skills`;
+      const commandsDir = `${config.projectRoot}/.opencode/commands`;
+
+      const skills = [
+        "vkb-oscr-plan",
+        "vkb-oscr-coordinate",
+        "vkb-oscr-finalize"
+      ];
+
+      const pluginDir = import.meta.dir;
+
+      for (const skill of skills) {
+        const src = join(pluginDir, "assets", "skills", skill);
+        const dest = join(skillsDir, skill);
+        await copyDir(src, dest);
+      }
+
+      await copyDir(join(pluginDir, "assets", "commands"), commandsDir);
+
+      await Bun.write(markerPath, VERSION);
     }
   }
 };
