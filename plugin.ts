@@ -1,23 +1,13 @@
 import type { Plugin } from "@opencode-ai/plugin";
+import { mkdir, cp } from "node:fs/promises";
 
 const VERSION = "0.1.0";
 const MARKER_FILE = ".opencode/vkb-oscr-installed";
 
 const copyDir = async (src: string, dest: string): Promise<void> => {
   const srcPath = import.meta.resolveSync(src.replace(/^\//, "")) ?? src;
-  const srcDir = Bun.file(srcPath.slice(7));
-
-  for await (const entry of new Deno.Dir(src.slice(7))) {
-    const from = `${src}/${entry.name}`;
-    const to = `${dest}/${entry.name}`;
-
-    if (entry.isDirectory) {
-      await Deno.mkdir(to, { recursive: true });
-      await copyDir(from, to);
-    } else {
-      await Deno.copyFile(from.slice(7), to.slice(7));
-    }
-  }
+  await mkdir(dest, { recursive: true });
+  await cp(srcPath, dest, { recursive: true });
 };
 
 export const plugin: Plugin = {
@@ -36,8 +26,8 @@ export const plugin: Plugin = {
         const skillsDir = `${config.projectRoot}/.opencode/skills`;
         const commandsDir = `${config.projectRoot}/.opencode/commands`;
 
-        await Deno.mkdir(skillsDir, { recursive: true });
-        await Deno.mkdir(commandsDir, { recursive: true });
+        await mkdir(skillsDir, { recursive: true });
+        await mkdir(commandsDir, { recursive: true });
 
         const skills = [
           "vkb-oscr-plan",
