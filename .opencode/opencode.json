@@ -1,6 +1,5 @@
 {
-  "plugins": [
-    "@opencode-ai/opencode-architect",
-    "opencode-vkb-oscr"
+  "plugin": [
+    "@opencode-ai/opencode-architect"
   ]
 }
