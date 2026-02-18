@@ -1,6 +1,6 @@
 # Installation
 
-Install the opencode-vkb-oscr plugin to enable OpenSpec Change Request workflow with Vibe KanBan integration.
+Install the opencode-vkb-oscr plugin to enable OpenSpec Change Request orchestration through Vibe-Kanban.
 
 ## Prerequisites
 
@@ -11,12 +11,13 @@ Before installation, ensure you have:
 - **Git** repository with push access
 - **Vibe KanBan** configured with repositories
 - **OpenSpec** project structure at `openspec/changes/`
+- **octto** plugin (for Phase 0 interactive Q&A)
 
 Verify prerequisites:
 ```bash
-opencode --version    # Should show OpenCode version
-bun --version         # Should show Bun version
-git --version         # Should show Git version
+opencode --version    # OpenCode version
+bun --version         # Bun version
+git --version         # Git version
 ```
 
 ## Installation Methods
@@ -28,231 +29,142 @@ Add plugin to your project's `.opencode/opencode.json`:
 ```json
 {
   "plugins": [
-    "@opencode-ai/opencode-architect",
     "opencode-vkb-oscr"
   ]
 }
 ```
 
-Then install via OpenCode:
-
-```bash
-cd /path/to/your/project
-opencode install opencode-vkb-oscr
-```
-
-OpenCode will:
-1. Download the plugin
+OpenCode will automatically:
+1. Download and install the plugin
 2. Run the config hook
-3. Install skills to `.opencode/skills/`
-4. Install commands to `.opencode/commands/`
-5. Create version marker
+3. Install agents to `.opencode/agents/`
+4. Install skills to `.opencode/skills/`
+5. Install commands to `.opencode/commands/`
+6. Install templates to `.opencode/templates/`
+7. Create version marker `.opencode/.oscr-installed`
 
-### Method 2: Manual CLI Installation
+### Method 2: Local Development
 
-Clone or download the plugin manually:
+Clone and link for development:
 
 ```bash
-# Clone repository
-git clone <repository-url> /path/to/opecode-vkb-oscr
-cd /path/to/opecode-vkb-oscr
-
-# Install dependencies
+git clone <repository-url> /path/to/opencode-vkb-oscr
+cd /path/to/opencode-vkb-oscr
 bun install
-
-# Link to your project
 bun link
+
 cd /path/to/your/project
 bun link opencode-vkb-oscr
 ```
 
-Then add to `.opencode/opencode.json` as in Method 1.
-
-### Method 3: Bun Package Installation (If Published)
-
-If the plugin is published to npm:
-
-```bash
-bun add opencode-vkb-oscr
-```
-
-Add to `.opencode/opencode.json`:
-```json
-{
-  "plugins": [
-    "@opencode-ai/opencode-architect",
-    "opencode-vkb-oscr"
-  ]
-}
-```
+Add to `.opencode/opencode.json` as in Method 1.
 
 ## MCP Server Setup
 
-The VKB-OSCR workflow requires Vibe KanBan MCP server integration.
+The plugin integrates with Vibe KanBan via MCP.
 
-### Enable VKB MCP Server
+### Configure VKB MCP Server
 
-In your MCP configuration file (typically `~/.config/openai/mcp.json`):
+In your opencode.json or MCP configuration:
 
 ```json
 {
   "mcpServers": {
     "vibe-kanban": {
       "command": "npx",
-      "args": ["@vibe-kanban/mcp-server"],
-      "env": {
-        "VKB_API_URL": "https://your-vkb-instance.com",
-        "VKB_API_KEY": "your-api-key"
-      }
+      "args": ["-y", "vibe-kanban", "--mcp"],
+      "env": {}
     }
   }
 }
 ```
 
-Replace:
-- `VKB_API_URL` with your VKB instance URL
-- `VKB_API_KEY` with your VKB API key
-
-### Verify MCP Connection
-
-After configuration, verify MCP server is available:
-
-```bash
-opencode mcp list
-```
-
-You should see `vibe-kanban` in the list.
+The VKB server URL is inferred from this configuration during Phase 0 intake.
 
 ## Verification
 
-After installation, verify everything is working:
-
-### 1. Check Plugin Status
+### 1. Check Installed Components
 
 ```bash
-opencode plugin list
-```
+# Agents
+ls .opencode/agents/
+# Should show: vibe-orchestrator.md, oscr-reviewer.md, oscr-verifier.md
 
-You should see `opencode-vkb-oscr` in the active plugins.
-
-### 2. Verify Skills Installed
-
-```bash
+# Skills
 ls .opencode/skills/
-```
+# Should show: oscr-intake/, oscr-plan/, oscr-execute/, oscr-finalize/, oscr-vkb-quirks/
 
-You should see:
-- `vkb-oscr-plan/`
-- `vkb-oscr-coordinate/`
-- `vkb-oscr-finalize/`
-
-### 3. Verify Commands Installed
-
-```bash
+# Commands
 ls .opencode/commands/
+# Should show: oscr.md, oscr-plan.md, oscr-exec.md, oscr-fin.md, oscr-status.md
+
+# Templates
+ls .opencode/templates/
+# Should show: card-template.md
 ```
 
-You should see:
-- `vkb-oscr.md`
+### 2. Test Agent Availability
 
-### 4. Test Skill Loading
-
-```bash
-skill list
+In OpenCode:
+```
+@vibe-orchestrator hello
 ```
 
-All three VKB-OSCR skills should appear in the list.
+Should respond with the orchestrator agent.
 
-### 5. Test MCP Connection
+### 3. Test Commands
 
-```bash
-opencode mcp test vibe-kanban
+```
+/oscr-status
 ```
 
-Should return success message with server information.
+Should report "No active OSCR run" if no state exists.
 
 ## Troubleshooting
 
-### Plugin Not Listed
+### Plugin Not Loading
 
-**Problem:** Plugin doesn't appear in `opencode plugin list`
-
-**Solutions:**
-1. Check `.opencode/opencode.json` spelling
+1. Check `.opencode/opencode.json` for correct plugin name
 2. Ensure plugin is installed in `node_modules` or linked
-3. Restart OpenCode CLI
-4. Check for conflicting plugins
+3. Restart OpenCode
+4. Check for version marker file `.opencode/.oscr-installed`
 
 ### Skills Not Installed
 
-**Problem:** Skills directory doesn't contain VKB-OSCR skills
-
-**Solutions:**
-1. Run `opencode install opencode-vkb-oscr` again
-2. Check permissions on `.opencode/skills/` directory
-3. Delete version marker `.opencode/vkb-oscr-installed` and retry
-4. Check plugin logs for errors
+1. Delete `.opencode/.oscr-installed` marker file
+2. Restart OpenCode to re-trigger config hook
+3. Check permissions on `.opencode/` directory
 
 ### MCP Server Not Connected
 
-**Problem:** VKB MCP server not available
+1. Verify MCP configuration in opencode.json
+2. Test VKB server manually: `curl http://localhost:49861/api/health`
+3. Check VKB server logs for errors
 
-**Solutions:**
-1. Verify MCP configuration file path
-2. Check VKB_API_URL and VKB_API_KEY values
-3. Test VKB API connectivity manually
-4. Restart OpenCode CLI after configuration
-5. Check firewall/proxy settings
+### Version Mismatch
 
-### Version Marker Issues
-
-**Problem:** Plugin re-installs every run
-
-**Solutions:**
-1. Delete `.opencode/vkb-oscr-installed` file
-2. Check write permissions on `.opencode/` directory
-3. Verify VERSION constant in plugin.ts matches package.json
-
-### Type Errors
-
-**Problem:** TypeScript errors during development
-
-**Solutions:**
-1. Run `bun install` to ensure dependencies
-2. Check TypeScript version in `package.json`
-3. Run `bun run check` to see specific errors
-4. Ensure `@opencode-ai/plugin` is installed
+If plugin re-installs every run:
+1. Check VERSION in plugin.ts matches package.json version
+2. Delete `.opencode/.oscr-installed` and retry
 
 ## Uninstallation
 
-To remove the plugin:
-
 ```bash
-# Uninstall via OpenCode
-opencode uninstall opencode-vkb-oscr
-
 # Remove from .opencode/opencode.json
-# Edit and remove "opencode-vkb-oscr" from plugins array
+# Delete "opencode-vkb-oscr" from plugins array
 
-# Remove installed skills
-rm -rf .opencode/skills/vkb-oscr-plan
-rm -rf .opencode/skills/vkb-oscr-coordinate
-rm -rf .opencode/skills/vkb-oscr-finalize
-
-# Remove commands
-rm -rf .opencode/commands/vkb-oscr.md
-
-# Remove version marker
-rm -f .opencode/vkb-oscr-installed
+# Remove installed assets
+rm -rf .opencode/agents/vibe-orchestrator.md
+rm -rf .opencode/agents/oscr-reviewer.md
+rm -rf .opencode/agents/oscr-verifier.md
+rm -rf .opencode/skills/oscr-*
+rm -rf .opencode/commands/oscr*.md
+rm -rf .opencode/templates/card-template.md
+rm -f .opencode/.oscr-installed
 ```
 
 ## Next Steps
 
-After successful installation:
-
 1. Read [README.md](README.md) for usage examples
 2. Review [AGENTS.md](AGENTS.md) for development guidelines
 3. Check [CONTRIBUTING.md](CONTRIBUTING.md) for making changes
-
-For help, report issues or check documentation at:
-- https://github.com/anomalyco/opencode-vkb-oscr/issues

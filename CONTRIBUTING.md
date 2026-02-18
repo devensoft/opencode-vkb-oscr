@@ -1,205 +1,137 @@
 # Contributing to opencode-vkb-oscr
 
-Thank you for your interest in contributing to the VKB-OSCR workflow plugin!
+Thank you for contributing to the VKB-OSCR orchestration plugin!
 
 ## Setup
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd opecode-vkb-oscr
-   ```
-
-2. **Install dependencies**
-   ```bash
-   bun install
-   ```
-
-3. **Set up development environment**
-   ```bash
-   bun run check    # Type check
-   bun test         # Run tests
-   ```
+```bash
+git clone <repository-url>
+cd opencode-vkb-oscr
+bun install
+bun run check    # Type check
+bun test         # Run tests
+```
 
 ## Package Structure
 
 ```
-opecode-vkb-oscr/
-├── assets/                    # Plugin assets to install
-│   ├── commands/              # Command files
-│   │   └── vkb-oscr.md     # Main command documentation
-│   └── skills/               # OpenCode skills
-│       ├── vkb-oscr-plan/     # Planning skill
-│       │   ├── SKILL.md
-│       │   └── references/
-│       ├── vkb-oscr-coordinate/ # Coordination skill
-│       │   ├── SKILL.md
-│       │   └── references/
-│       └── vkb-oscr-finalize/ # Finalization skill
-│           ├── SKILL.md
-│           └── references/
-├── tests/                    # Test files
-│   ├── integration/          # Integration tests
-│   └── unit/               # Unit tests
+opencode-vkb-oscr/
+├── src/                        # TypeScript source
+│   ├── types.ts                # All interfaces and types
+│   └── tools/                  # Custom tool implementations
+│       ├── state.ts            # oscr_save, oscr_load
+│       ├── wait.ts             # oscr_wait
+│       └── vkb.ts              # oscr_follow_up
+├── assets/                     # Plugin assets (copied on install)
+│   ├── agents/                 # Agent definitions
+│   │   ├── vibe-orchestrator.md
+│   │   ├── oscr-reviewer.md
+│   │   └── oscr-verifier.md
+│   ├── skills/                 # Skill definitions
+│   │   ├── oscr-intake/
+│   │   ├── oscr-plan/
+│   │   ├── oscr-execute/
+│   │   ├── oscr-finalize/
+│   │   └── oscr-vkb-quirks/
+│   ├── commands/               # Slash commands
+│   │   ├── oscr.md
+│   │   ├── oscr-plan.md
+│   │   ├── oscr-exec.md
+│   │   ├── oscr-fin.md
+│   │   └── oscr-status.md
+│   └── templates/              # User-modifiable templates
+│       └── card-template.md
+├── tests/                      # Test files
+│   └── unit/
 │       └── plugin.test.ts
-├── plugin.ts                # Main plugin implementation
-├── index.ts                 # Package entry point
-├── package.json             # Package configuration
-├── tsconfig.json           # TypeScript configuration
-└── .opencode/            # OpenCode configuration
-    └── opencode.json      # Plugin list
+├── plugin.ts                   # Main plugin (tool, config, event exports)
+├── index.ts                    # Package entry point
+├── package.json
+└── tsconfig.json
 ```
+
+## Architecture
+
+### 4-Phase Workflow
+
+1. **Intake** (`oscr-intake`) — Interactive Q&A via octto
+2. **Plan** (`oscr-plan`) — Create VKB cards
+3. **Execute** (`oscr-execute`) — Launch, wait, review, fix, merge
+4. **Finalize** (`oscr-finalize`) — Sync, verify, archive
+
+### Agents
+
+- `vibe-orchestrator` — Primary agent, loads skills per phase
+- `oscr-reviewer` — Hidden subagent for code review (read-only)
+- `oscr-verifier` — Hidden subagent for test verification
+
+### Custom Tools
+
+- `oscr_save` — Persist state to `.opencode/.oscr-state.json`
+- `oscr_load` — Load persisted state
+- `oscr_wait` — Server-side polling (prevents context explosion)
+- `oscr_follow_up` — Send instructions to VKB sessions
 
 ## Making Changes
 
 ### Adding a New Skill
 
-1. Create skill directory in `assets/skills/<skill-name>/`
-2. Create `SKILL.md` with YAML frontmatter:
+1. Create `assets/skills/<skill-name>/SKILL.md` with frontmatter:
    ```yaml
    ---
    name: skill-name
    description: One-line description
    license: MIT
    compatibility: opencode
-   metadata:
-     category: workflow
-     workflow: vkb-oscr
    ---
    ```
-3. Add reference documentation in `references/` subdirectory
-4. Update plugin.ts to copy the new skill
-5. Add tests for the skill installation
+2. Plugin config hook automatically copies it on install
+3. Add tests if the skill has tool dependencies
 
-### Updating Plugin Logic
+### Adding a New Tool
 
-The main plugin logic is in `plugin.ts`:
+1. Create class in `src/tools/<name>.ts`
+2. Export factory function
+3. Register in `plugin.ts` using `tool()` helper
+4. Add type definitions to `src/types.ts`
+5. Write unit tests
 
-- `VERSION`: Plugin version string
-- `copyDir()`: Recursive directory copy function
-- `plugin.hooks.config()`: Installation hook
+### Modifying Agents
 
-When modifying:
-- Update VERSION if changing behavior
-- Ensure backward compatibility
-- Add tests for new functionality
-- Update documentation
-
-### Modifying Skills
-
-Skills are Markdown files in `assets/skills/`:
-
-- Maintain YAML frontmatter format
-- Keep progressive disclosure structure
-- Cross-link to reference documents
-- Update related command documentation
-
-### Documentation Updates
-
-- **README.md**: Overview and usage
-- **AGENTS.md**: Guidelines for AI agents
-- **CHANGELOG.md**: Version history
-- Reference docs in skill directories
-
-## Testing
-
-### Running Tests
-
-```bash
-# Run all tests
-bun test
-
-# Run in watch mode
-bun test --watch
-
-# Run specific test file
-bun test tests/unit/plugin.test.ts
-```
-
-### Writing Tests
-
-Tests are in `tests/unit/`:
-
-```typescript
-import { describe, it, expect, beforeEach } from "bun:test";
-
-describe("plugin config", () => {
-  beforeEach(() => {
-    // Setup
-  });
-
-  it("should install assets on first run", async () => {
-    // Test implementation
-    expect(result).toBeDefined();
-  });
-});
-```
-
-### Test Coverage
-
-Ensure tests cover:
-- Plugin installation (first run, reinstall, upgrade)
-- Asset copying (skills, commands)
-- Version marker handling
-- Error scenarios (missing assets, permission errors)
-
-## Submitting Changes
-
-1. **Branch from main**
-   ```bash
-   git checkout main
-   git pull origin main
-   git checkout -b feature/your-change
-   ```
-
-2. **Make your changes**
-   - Follow code style guidelines
-   - Add tests for new functionality
-   - Update documentation
-
-3. **Run checks**
-   ```bash
-   bun run check  # Type check
-   bun test         # All tests pass
-   ```
-
-4. **Commit with conventional messages**
-   ```bash
-   git add .
-   git commit -m "feat(plan): add new branching strategy option"
-   ```
-
-5. **Push and create PR**
-   ```bash
-   git push -u origin feature/your-change
-   gh pr create --title "feat: add new branching strategy option"
-   ```
+Edit markdown files in `assets/agents/`:
+- Update frontmatter for permissions/tools
+- Modify system prompt for behavior changes
 
 ## Code Style
 
-- TypeScript with strict mode enabled
-- Conventional commits for messages
-- Clear, self-documenting code
-- No comments (let code speak)
-- 100 characters max line length
+- No comments — use descriptive names
+- Classes over helper functions
+- Nullable (`string | null`) over optional (`string?`)
+- Function declarations, not arrow functions
+- Explicit types on all parameters and returns
+- No `any` — use `unknown` with type guards
 
-### TypeScript Guidelines
+## Testing
 
-```typescript
-// ✅ Good
-import type { Plugin } from "@opencode-ai/plugin";
+```bash
+bun test              # Run all tests
+bun test --watch      # Watch mode
+bun run check         # Type check
+```
 
-const VERSION = "0.1.0";
+## Commit Convention
 
-export const plugin: Plugin = {
-  name: "vkb-oscr",
-  version: VERSION,
-  hooks: { /* ... */ }
-};
+```
+<type>(<scope>): <subject>
 
-// ❌ Bad
-const v = "0.1.0";
-const plugin = { name: "vkb-oscr", v: v };
+Types: feat, fix, docs, style, refactor, test, chore
+```
+
+Examples:
+```
+feat(execute): add stall detection with nudge-once pattern
+fix(state): handle missing state file gracefully
+docs(readme): update usage examples for new commands
 ```
 
 ## Release Process
@@ -207,12 +139,10 @@ const plugin = { name: "vkb-oscr", v: v };
 1. Update `VERSION` in `plugin.ts`
 2. Update `version` in `package.json`
 3. Add entry to `CHANGELOG.md`
-4. Run full test suite
+4. Run tests: `bun test && bun run check`
 5. Commit and tag
-6. Push tag to trigger release
+6. Push to trigger release
 
 ## Questions?
 
-- Open an issue for bugs or feature requests
-- Check existing issues before creating new ones
-- Use discussions for questions or proposals
+Open an issue for bugs or feature requests.
