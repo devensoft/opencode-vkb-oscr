@@ -2,11 +2,17 @@
   "name": "opencode-vkb-oscr",
   "version": "0.2.0",
   "type": "module",
+  "main": "index.ts",
   "module": "index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
   "license": "MIT",
   "description": "OpenSpec Change Request workflow for Vibe KanBan with card planning, execution coordination, and finalization",
   "files": [
     "index.ts",
+    "plugin.ts",
+    "src",
     "assets"
   ],
   "scripts": {

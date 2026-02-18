@@ -26,3 +26,5 @@ coverage/
 # Temporary
 .tmp/
 .cache/
+docs/example-transcripts
+
