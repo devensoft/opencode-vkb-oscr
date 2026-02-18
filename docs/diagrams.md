@@ -1,165 +1,205 @@
-# E2E Workflow
+# OSCR Orchestration Workflow
 
 ```mermaid
 flowchart TD
-    subgraph Phase0["Phase 0: Validate Inputs"]
-        V1[Check required variables]
-        V2{All variables provided?}
-        V1 --> V2
-        V2 -->|No| V3[Prompt user for missing values]
-        V3 --> V1
-        V2 -->|Yes| P1
+    subgraph Phase0["Phase 0: Intake (oscr-intake)"]
+        I1[Load oscr-intake skill]
+        I2[Determine change names<br/>single/list/active]
+        I3[Infer VKB URL from<br/>opencode.json MCP config]
+        I4[octto: Confirm push preference]
+        I5[octto: Choose executor model]
+        I6[Validate via openspec status]
+        I7[Save initial OscrState]
+        I1 --> I2 --> I3 --> I4 --> I5 --> I6 --> I7
     end
 
-    subgraph Phase1["Phase 1: Setup"]
-        P1[Ensure BASE_BRANCH exists]
-        P2[For each change request:<br/>create card via create_task]
-        P3[Store task_ids]
-        P4[Determine execution sequence<br/>Sequential vs Parallel]
-        P1 --> P2 --> P3 --> P4
+    subgraph Phase1["Phase 1: Plan (oscr-plan)"]
+        P1[Load oscr-plan skill]
+        P2[Load state via oscr_load]
+        P3[For each change:<br/>openspec instructions --json]
+        P4[Create kanban issue<br/>via MCP create_issue]
+        P5[Build CardState entries]
+        P6[Save state, transition<br/>to execute phase]
+        P1 --> P2 --> P3 --> P4 --> P5 --> P6
     end
 
-    subgraph Phase2["Phase 2: Execution Loop"]
-        S1["STEP 1: Start Next Card<br/>start_workspace_session"]
-        S2["STEP 2: Monitor Progress<br/>Poll get_task every 60s"]
-        S3["STEP 3: Code Review<br/>Delegate to Sub-Agent via Task tool"]
-        S4["STEP 4: Process Report"]
-        S5["STEP 5: Merge & Finalize"]
-        S6["STEP 6: Checkpoint"]
-        
-        S1 -->|Auto: To do → In progress| S2
-        S2 -->|Status = In review| S3
-        S2 -->|Timeout| E1[Escalate to human]
-        
-        subgraph SubAgent["Sub-Agent (via Task tool)"]
-            SA1[Switch to worktree]
-            SA2[Review vs design.md & spec.md]
-            SA3[Execute testing protocol]
-            SA4{Issues found?}
-            SA5["Fix blocking issues<br/>(smallest change possible)"]
-            SA6[Document non-blocking issues]
-            SA7[Commit fixes]
-            SA8[Report back to Team Lead]
-            
-            SA1 --> SA2 --> SA3 --> SA4
-            SA4 -->|Blocking| SA5 --> SA7 --> SA8
-            SA4 -->|Non-blocking| SA6 --> SA8
-            SA4 -->|None| SA8
-        end
-        
-        S3 --> SubAgent
-        SubAgent --> S4
-        
-        S4 -->|Escalation| E2[Create blocked card<br/>Continue with next independent]
-        S4 -->|Non-blocking issues| S4a[Create follow-up cards]
-        S4a --> S5
-        S4 -->|Ready to merge| S5
-        
-        S5 -->|Auto: In review → Done| S6
-        S5 -->|Merge conflict| E3[Escalate to human]
-        
-        S6 -->|More cards| S1
-        S6 -->|Pause 60s for human| S1
+    subgraph Phase2["Phase 2: Execute (oscr-execute)"]
+        direction TB
+        E1["STEP 1: Create & Launch<br/>POST /api/tasks/create-and-start"]
+        E2["Get session ID<br/>GET /api/sessions?workspace_id=..."]
+        E3["oscr_follow_up:<br/>Send card template instructions"]
+        E4["STEP 2: Wait<br/>oscr_wait (server-side poll)"]
+        E5{has_in_progress_attempt<br/>=== false?}
+        E6["Stall: Nudge once<br/>via oscr_follow_up"]
+        E7["Escalate to human"]
+        E8["STEP 3: Review<br/>@oscr-reviewer subagent"]
+        E9{VERDICT?}
+        E10["Fix via oscr_follow_up<br/>(max 2 cycles)"]
+        E11["STEP 4: Merge<br/>git merge --no-ff"]
+        E12["Explicitly update issue<br/>to Done status"]
+        E13["STEP 5: Checkpoint<br/>Save state, continue"]
+
+        E1 --> E2 --> E3 --> E4 --> E5
+        E5 -->|Yes| E8
+        E5 -->|No, timeout| E6
+        E6 -->|Still stuck| E7
+        E6 -->|Resumed| E4
+        E8 --> E9
+        E9 -->|Fail, cycles left| E10
+        E10 --> E4
+        E9 -->|Fail, no cycles| E7
+        E9 -->|Pass| E11
+        E11 --> E12 --> E13
+        E13 -->|More cards| E1
     end
 
-    subgraph Phase3["Phase 3: Finalization"]
-        F1[Verify all cards Done]
-        F2[Run full test suite<br/>on BASE_BRANCH]
-        F3["/opsx:archive for each<br/>change request"]
-        F4[Generate final report]
-        F1 --> F2 --> F3 --> F4
+    subgraph Phase3["Phase 3: Finalize (oscr-finalize)"]
+        F1[Load oscr-finalize skill]
+        F2[For each done card:<br/>openspec sync]
+        F3[openspec verify]
+        F4[openspec archive]
+        F5[Generate summary report]
+        F6[Clean up state file]
+        F1 --> F2 --> F3 --> F4 --> F5 --> F6
     end
 
     Phase0 --> Phase1 --> Phase2 --> Phase3
 
-    subgraph Legend["Agent Levels"]
-        L1["Team Lead (You)<br/>Main orchestrator"]
-        L2["VKB Agent<br/>Isolated coding session"]
-        L3["Sub-Agent<br/>Code review & fixes"]
-        L1 -.->|vkb MCP tools| L2
-        L1 -.->|Task tool| L3
+    subgraph Legend["Components"]
+        L1["@vibe-orchestrator<br/>Primary agent"]
+        L2["Skills<br/>oscr-intake/plan/execute/finalize"]
+        L3["Tools<br/>oscr_save/load/wait/follow_up"]
+        L4["@oscr-reviewer<br/>Hidden subagent"]
+        L5["VKB Executor<br/>OPENCODE/CLAUDE/etc."]
+        L1 --> L2
+        L2 --> L3
+        L1 -.->|Task tool| L4
+        L1 -.->|HTTP API| L5
     end
 ```
 
-
-# Status Transition Workflow
+# Card State Machine
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ToDo: create_task
-    ToDo --> InProgress: start_workspace_session<br/>(automatic)
-    InProgress --> InReview: VKB agent completes<br/>(automatic)
-    InReview --> Done: Branch merged<br/>(automatic)
-    Done --> [*]
+    [*] --> pending: CardState created
+    pending --> launched: create-and-start + follow-up
+    launched --> executing: oscr_wait polling
+    executing --> reviewing: has_in_progress_attempt=false
+    reviewing --> fixing: VERDICT=fail, cycles left
+    fixing --> executing: follow-up sent
+    reviewing --> merging: VERDICT=pass
+    merging --> done: git merge + update_issue
+    executing --> escalated: timeout + nudge failed
+    reviewing --> escalated: max fix cycles exceeded
     
-    note right of ToDo: Card created, waiting
-    note right of InProgress: VKB agent working<br/>(blackbox to Team Lead)
-    note right of InReview: Ready for review<br/>Sub-agent can access
-    note right of Done: Merged to BASE_BRANCH
-
+    note right of pending: Awaiting launch
+    note right of launched: VKB executor starting
+    note right of executing: Executor working
+    note right of reviewing: @oscr-reviewer analyzing
+    note right of done: Merged to base branch
+    note right of escalated: Human intervention needed
 ```
 
-
-# Agent Interaction Sequence Diagram
+# Agent Interaction Sequence
 
 ```mermaid
 sequenceDiagram
-    participant PM as Product Manager
-    participant TL as Team Lead (Main Agent)
-    participant VKB as VKB Agent (Isolated Session)
-    participant SA as Sub-Agent (Task Tool)
-    participant Human as Human
+    participant User
+    participant VO as @vibe-orchestrator
+    participant Skill as Skills (intake/plan/execute/finalize)
+    participant Tool as Tools (save/load/wait/follow_up)
+    participant VKB as VKB HTTP API
+    participant Reviewer as @oscr-reviewer
+    participant Octto as octto (Q&A)
 
-    PM->>TL: Provides OpenSpec plan
+    User->>VO: /oscr user-auth-v2
     
-    Note over TL: Phase 1: Setup
-    TL->>TL: Create cards via create_task
-    TL->>TL: Determine sequence
+    Note over VO: Phase 0: Intake
+    VO->>Skill: load oscr-intake
+    Skill->>Octto: confirm push preference
+    Octto-->>Skill: No (stay local)
+    Skill->>Tool: oscr_save(initial state)
+    
+    Note over VO: Phase 1: Plan
+    VO->>Skill: load oscr-plan
+    Skill->>Tool: oscr_load
+    Skill->>VKB: MCP create_issue
+    VKB-->>Skill: issue_id
+    Skill->>Tool: oscr_save(cards pending)
+    
+    Note over VO: Phase 2: Execute
+    VO->>Skill: load oscr-execute
     
     loop For each card
-        Note over TL: STEP 1: Start Card
-        TL->>VKB: start_workspace_session
-        Note over VKB: Status: In progress
+        Skill->>VKB: POST /api/tasks/create-and-start
+        VKB-->>Skill: task_id, workspace_id
+        Skill->>VKB: GET /api/sessions?workspace_id=...
+        VKB-->>Skill: session_id
+        Skill->>Tool: oscr_follow_up(card template)
         
-        Note over TL: STEP 2: Monitor
-        TL->>VKB: get_task (poll every 60s)
-        VKB-->>TL: Status: In review
+        Skill->>Tool: oscr_wait(task_id, timeout)
+        Tool-->>Skill: {completed: true/false}
         
-        Note over TL: STEP 3: Delegate Review
-        TL->>SA: Task tool with review prompt
-        
-        Note over SA: Switch to worktree
-        Note over SA: Review & test
-        alt Blocking issues
-            SA->>SA: Fix immediately
-            SA->>SA: Commit fixes
-        end
-        alt Non-blocking issues
-            SA->>SA: Document for follow-up
-        end
-        SA-->>TL: Report with recommendation
-        
-        Note over TL: STEP 4: Process Report
-        alt Escalation needed
-            TL->>Human: Escalate with context
-        end
-        alt Non-blocking issues
-            TL->>TL: Create follow-up cards
+        alt Completed
+            Skill->>Reviewer: Task tool (review prompt)
+            Reviewer-->>Skill: {VERDICT: pass/fail}
+            
+            alt Fail, cycles left
+                Skill->>Tool: oscr_follow_up(fix instructions)
+                Note over Skill: Back to wait
+            else Pass
+                Skill->>Skill: git merge --no-ff
+                Skill->>VKB: MCP update_issue (Done)
+            end
+        else Timeout
+            Skill->>Tool: oscr_follow_up(nudge)
+            Note over Skill: Wait half-timeout
+            alt Still stuck
+                Note over Skill: Escalate to human
+            end
         end
         
-        Note over TL: STEP 5: Merge
-        TL->>TL: Merge to BASE_BRANCH
-        Note over VKB: Status: Done (automatic)
-        
-        Note over TL: STEP 6: Checkpoint
-        TL->>TL: Summarize & pause 60s
+        Skill->>Tool: oscr_save(checkpoint)
     end
     
-    Note over TL: Phase 3: Finalization
-    TL->>TL: Verify all Done
-    TL->>TL: Run full test suite
-    TL->>TL: /opsx:archive each change
-    TL->>PM: Final report
-
+    Note over VO: Phase 3: Finalize
+    VO->>Skill: load oscr-finalize
+    Skill->>Skill: openspec sync/verify/archive
+    Skill->>User: Summary report
 ```
 
+# Tool Data Flow
+
+```mermaid
+flowchart LR
+    subgraph State["State Management"]
+        S1[oscr_save]
+        S2[oscr_load]
+        SF[(".opencode/.oscr-state.json")]
+    end
+    
+    subgraph VKB["VKB Integration"]
+        W1[oscr_wait]
+        W2[oscr_follow_up]
+        API[("VKB HTTP API<br/>/api/tasks<br/>/api/sessions")]
+    end
+    
+    subgraph OscrState["OscrState"]
+        ST1[runId, phase]
+        ST2[config]
+        ST3[cards: CardState[]]
+    end
+    
+    S1 --> SF
+    SF --> S2
+    S2 --> ST1
+    S2 --> ST2
+    S2 --> ST3
+    
+    W1 --> API
+    W2 --> API
+    
+    API -->|task status| W1
+    API -->|session follow-up| W2
+```

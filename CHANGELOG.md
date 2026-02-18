@@ -2,58 +2,66 @@
 
 All notable changes to the opencode-vkb-oscr plugin.
 
-## [0.2.0] - 2026-02-16
+## [0.9.1] - 2026-02-18
+
+### Added
+
+**Agents**
+- `vibe-orchestrator` — Primary orchestrator agent with skill-based phase loading
+- `oscr-reviewer` — Hidden read-only code reviewer subagent
+- `oscr-verifier` — Hidden test/verification subagent
+
+**Skills**
+- `oscr-intake` — Phase 0: Interactive Q&A via octto
+- `oscr-plan` — Phase 1: Create VKB cards for each change
+- `oscr-execute` — Phase 2: 5-step execution loop (launch, wait, review, fix, merge)
+- `oscr-finalize` — Phase 3: Sync, verify, archive
+- `oscr-vkb-quirks` — Reference documentation for VKB API quirks
+
+**Custom Tools**
+- `oscr_save` — Persist orchestration state to `.opencode/.oscr-state.json`
+- `oscr_load` — Load persisted state from disk
+- `oscr_wait` — Server-side polling with timeout (prevents LLM context explosion)
+- `oscr_follow_up` — Send instructions to VKB executor sessions
+
+**Commands**
+- `/oscr` — Full workflow orchestration
+- `/oscr-plan` — Planning phase only
+- `/oscr-exec` — Resume execution from saved state
+- `/oscr-fin` — Finalization phase only
+- `/oscr-status` — Read-only status display
+
+**Templates**
+- `card-template.md` — User-modifiable instructions for VKB executors
 
 ### Changed
-- Migrated from Deno to Bun runtime
-- Updated all documentation to reflect Bun runtime
-- Updated test framework references to use `bun test`
-- Updated file operation APIs to use Bun.file and Bun.write
+- Complete architecture redesign: replaced 3 monolithic skills with 5 focused skills + 3 agents
+- Plugin now exports `tool`, `config`, and `event` hooks
+- Config hook installs agents, skills, commands, and templates
+- Added `main` and `exports` fields to package.json for broader compatibility
+- State management now uses custom tools instead of inline logic
+- Execution loop uses server-side polling to prevent context explosion
+
+### Removed
+- `vkb-oscr-plan` skill (replaced by `oscr-plan`)
+- `vkb-oscr-coordinate` skill (replaced by `oscr-execute`)
+- `vkb-oscr-finalize` skill (replaced by `oscr-finalize`)
+- `vkb-oscr` command (replaced by 5 focused commands)
+- All reference documentation (consolidated into skills)
 
 ### Migration Notes
-- Replaced Deno-specific APIs with Bun equivalents
-- Test commands now use `bun test` instead of `deno test`
-- Type checking uses `bun run check` instead of `deno check`
+- Skills renamed: `vkb-oscr-*` → `oscr-*`
+- Commands renamed: `/vkb-oscr` → `/oscr`, `/oscr-plan`, `/oscr-exec`, `/oscr-fin`, `/oscr-status`
+- Primary interaction now via `@vibe-orchestrator` agent instead of direct skill loading
+- State file moved: `.opencode/vkb-oscr-installed` → `.opencode/.oscr-installed`
 
 ## [0.1.0] - 2026-02-12
 
 ### Added
 - Initial release of VKB-OSCR workflow plugin
-- `vkb-oscr-plan` skill for planning OpenSpec changes and creating VKB cards
+- `vkb-oscr-plan` skill for planning OpenSpec changes
 - `vkb-oscr-coordinate` skill for coordinating phase execution
 - `vkb-oscr-finalize` skill for completing and archiving changes
-- Support for 4 branching strategies (feature branch + phases, flat phases, long-running feature, custom)
-- Multi-framework testing support (npm, Python, Rust, Go, Java)
-- Comprehensive reference documentation for all skills
-- VKB behavior quirks documentation and workarounds
-- Merge conflict resolution guides
-- Testing baseline metrics (BL-004)
-- OpenSpec verification guidance
-- Archive process documentation
-- Post-completion checklists
-
-### Features
-- Interactive planning session with branch strategy selection
-- 60-second grace period handling for VKB late commits
-- Manual merge workflow with conflict resolution
-- Delta spec sync with atomic operations (ADDED, MODIFIED, REMOVED, RENAMED)
-- Timestamp-based archiving
-- Follow-up card creation for non-blocking issues
-- Baseline test result comparison
-
-### Documentation
-- Complete README with usage examples
-- AGENTS.md with development guidelines
-- CONTRIBUTING.md with setup and workflow
-- INSTALLATION.md with multiple installation methods
-- Skill reference documentation:
-  - Branching strategies guide
-  - Card template examples
-  - VKB API quick reference
-  - Merge conflict resolution
-  - Testing baseline metrics
-  - Verification guide
-  - VKB behavior quirks
-  - Sync operations
-  - Archive process
-  - Post-completion checklist
+- Support for 4 branching strategies
+- Multi-framework testing support
+- Comprehensive reference documentation

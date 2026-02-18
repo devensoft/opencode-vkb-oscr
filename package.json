@@ -1,6 +1,6 @@
 {
   "name": "opencode-vkb-oscr",
-  "version": "0.2.0",
+  "version": "0.9.1",
   "type": "module",
   "main": "index.ts",
   "module": "index.ts",
