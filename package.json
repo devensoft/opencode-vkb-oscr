@@ -7,6 +7,8 @@
   "description": "OpenSpec Change Request workflow for Vibe KanBan with card planning, execution coordination, and finalization",
   "files": [
     "index.ts",
+    "plugin.ts",
+    "src",
     "assets"
   ],
   "scripts": {

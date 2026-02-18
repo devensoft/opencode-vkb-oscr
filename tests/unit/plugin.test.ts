@@ -16,7 +16,7 @@ describe("plugin", () => {
 
   describe("config hook", () => {
     it("should install assets on first run", async () => {
-      const markerPath = `${mockProjectRoot}/.opencode/vkb-oscr-installed`;
+      const markerPath = `${mockProjectRoot}/.opencode/.oscr-installed`;
 
       const hooks = await plugin({
         client: {} as never,
@@ -47,8 +47,8 @@ describe("plugin", () => {
     });
 
     it("should skip installation if version marker matches", async () => {
-      const markerPath = `${mockProjectRoot}/.opencode/vkb-oscr-installed`;
-      await Bun.write(markerPath, "0.1.0");
+      const markerPath = `${mockProjectRoot}/.opencode/.oscr-installed`;
+      await Bun.write(markerPath, "0.2.0");
 
       const hooks = await plugin({
         client: {} as never,
@@ -62,11 +62,11 @@ describe("plugin", () => {
       await hooks.config!({} as never);
 
       const markerContent = await Bun.file(markerPath).text();
-      expect(markerContent).toBe("0.1.0");
+      expect(markerContent).toBe("0.2.0");
     });
 
     it("should re-install if version marker differs", async () => {
-      const markerPath = `${mockProjectRoot}/.opencode/vkb-oscr-installed`;
+      const markerPath = `${mockProjectRoot}/.opencode/.oscr-installed`;
       await Bun.write(markerPath, "0.0.1");
 
       const hooks = await plugin({
@@ -81,7 +81,7 @@ describe("plugin", () => {
       await hooks.config!({} as never);
 
       const markerContent = await Bun.file(markerPath).text();
-      expect(markerContent).toBe("0.1.0");
+      expect(markerContent).toBe("0.2.0");
     });
 
     it("should handle missing assets gracefully", async () => {
@@ -96,9 +96,12 @@ describe("plugin", () => {
         $: {} as never
       });
 
-      const result = await hooks.config!({} as never).catch((e: Error) => e);
+      const didNotThrow = await hooks
+        .config!({} as never)
+        .then(() => true)
+        .catch(() => false);
 
-      expect(result).toBeDefined();
+      expect(didNotThrow).toBe(true);
     });
   });
 
@@ -115,6 +118,36 @@ describe("plugin", () => {
 
       expect(hooks).toBeDefined();
       expect(hooks.config).toBeDefined();
+    });
+
+    it("should return tool definitions", async () => {
+      const hooks = await plugin({
+        client: {} as never,
+        project: {} as never,
+        directory: mockProjectRoot,
+        worktree: mockProjectRoot,
+        serverUrl: new URL("http://localhost"),
+        $: {} as never
+      });
+
+      expect(hooks.tool).toBeDefined();
+      expect(hooks.tool!.oscr_save).toBeDefined();
+      expect(hooks.tool!.oscr_load).toBeDefined();
+      expect(hooks.tool!.oscr_wait).toBeDefined();
+      expect(hooks.tool!.oscr_follow_up).toBeDefined();
+    });
+
+    it("should return event handler", async () => {
+      const hooks = await plugin({
+        client: {} as never,
+        project: {} as never,
+        directory: mockProjectRoot,
+        worktree: mockProjectRoot,
+        serverUrl: new URL("http://localhost"),
+        $: {} as never
+      });
+
+      expect(hooks.event).toBeDefined();
     });
   });
 });
